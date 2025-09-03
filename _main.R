@@ -13,6 +13,7 @@ library(ggpubr)
 library(countrycode)
 library(DescTools)
 library(fixest)
+library(leaflet)
 
 ## Paths
 proj_dir <- "/Users/rmarty/Library/CloudStorage/OneDrive-WBG/Data Lab/Global NTL"
