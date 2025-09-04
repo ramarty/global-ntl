@@ -14,10 +14,10 @@ for(uid_i in sort(unique(adm0_sf$ISO_A3))){
   for(product_id_i in c("VNP46A3", "VNP46A4")){ # "VNP46A3"
     
     if(product_id_i == "VNP46A3") date_vec <- seq.Date(from = ymd("2012-01-01"),
-                                                       to = ymd("2012-01-01"),
+                                                       to = ymd("2025-07-01"),
                                                        by = "month") %>%
         as.character()
-    if(product_id_i == "VNP46A4") date_vec <- 2024
+    if(product_id_i == "VNP46A4") date_vec <- 2012:2024
     
     #### Loop: Date
     for(date_i in date_vec){
@@ -30,10 +30,9 @@ for(uid_i in sort(unique(adm0_sf$ISO_A3))){
       
       #### Raster Directory
       dir.create(file.path(raster_root_dir, product_id_i))
-      dir.create(file.path(raster_root_dir, product_id_i, date_i))
-      dir.create(file.path(raster_root_dir, product_id_i, date_i, uid_i))
-      
-      raster_out_dir <- file.path(raster_root_dir, product_id_i, date_i, uid_i)
+      dir.create(file.path(raster_root_dir, product_id_i, uid_i))
+
+      raster_out_dir <- file.path(raster_root_dir, product_id_i, uid_i)
       
       #### Query Data
       print(uid_i)
@@ -55,8 +54,10 @@ for(uid_i in sort(unique(adm0_sf$ISO_A3))){
                          h5_dir = h5_out_dir,
                          check_all_tiles_exist = F)
       
+      # showConnections(all = TRUE)
+      # closeAllConnections()
+      
       ##
     }
   }
 }
-
