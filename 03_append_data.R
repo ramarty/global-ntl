@@ -1,37 +1,35 @@
 # Append Data
 
-viirs_df <- file.path(db_dir, "data", "ntl", "aggregated_data") %>%
-  list.files(pattern = ".Rds",
-             recursive = T,
-             full.names = T) %>%
-  map_df(readRDS)
+product_id_i <- "VNP46A4"
+iso_i <- "ABW"
+adm_level_name_i <- "ADM2"
 
-bm_df <- file.path(db_dir, "data", "ntl", "aggregated_data_bm") %>%
-  list.files(pattern = ".Rds",
-             recursive = T,
-             full.names = T) %>%
-  map_df(readRDS)
+for(product_id_i in c("VNP46A3", "VNP46A4")){ # , 
+  for(adm_level_name_i in c("ADM0", "ADM1", "ADM2")){
+    
+    message(paste0("Appending: ", adm_level_name_i, " - ", product_id_i))
+    
+    #### Append data
+    df <- file.path(agg_date_dir, adm_level_name_i, product_id_i) %>%
+      list.files(full.names = T,
+                 pattern = "*.Rds",
+                 recursive = T) %>%
+      map_df(readRDS)
+    
+    #### File name
+    if(product_id_i == "VNP46A3") time_name <- "monthly"
+    if(product_id_i == "VNP46A4") time_name <- "annual"
+    
+    adm_level_name_lw_i <- adm_level_name_i %>% tolower()
+    
+    file_name <- paste0(adm_level_name_lw_i,
+                        "_",
+                        time_name)
+    
+    #### Export
+    write_csv(df, file.path(agg_append_dir, paste0(file_name, ".csv")))
+    write_parquet(df, file.path(agg_append_dir, paste0(file_name, ".parquet")))
 
-dmsp_df <- file.path(db_dir, "data", "ntl", "aggregated_data_dmsp") %>%
-  list.files(pattern = ".Rds",
-             recursive = T,
-             full.names = T) %>%
-  map_df(readRDS)
+  }
+}
 
-ntl_df <- viirs_df %>%
-  full_join(dmsp_df, by = c("gid_0", "country", "year", "n_gasflare_locations")) %>%
-  full_join(bm_df, by = c("gid_0", "country", "year", "n_gasflare_locations"))
-
-## Add continent name
-# ntl_df <- ntl_df %>%
-#   dplyr::mutate(country = case_when(
-#     country == "México" ~ "Mexico",
-#     TRUE ~ country
-#   ))
-
-ntl_df$continent <- countrycode(sourcevar = ntl_df$gid_0,
-                                origin = "iso3c",
-                                destination = "continent")
-
-saveRDS(ntl_df, file.path(db_dir, "data", "ntl", "global_annual_ntl.Rds"))
-write_dta(ntl_df, file.path(db_dir, "data", "ntl", "global_annual_ntl.dta"))
