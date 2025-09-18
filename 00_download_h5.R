@@ -2,6 +2,20 @@
 bearer <- read_csv("~/Dropbox/bearer_bm.csv") %>%
   pull(token)
 
+# Delete if file size is 0 -----------------------------------------------------
+h5_files <- h5_root_dir %>%
+  list.files(recursive = T,
+             full.names = T,
+             pattern = ".h5")
+
+for(file_i in h5_files){
+  
+  if(file.size(file_i) == 0){
+    file.remove(file_i)
+  }
+  
+}
+
 # Monthly ----------------------------------------------------------------------
 product_id <- "VNP46A3"
 

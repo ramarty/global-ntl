@@ -8,7 +8,7 @@ bearer <- read_csv("~/Dropbox/bearer_bm.csv") %>%
 adm0_sf <- read_sf(file.path(wb_bound_dir, "World Bank Official Boundaries - Admin 0.gpkg"))
 
 #### Loop: Product
-for(product_id_i in c("VNP46A4", "VNP46A3")){ 
+for(product_id_i in c("VNP46A3", "VNP46A4")){ 
   
   date_vec <- file.path(h5_root_dir, product_id_i) %>%
     list.files()
