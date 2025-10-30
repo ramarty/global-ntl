@@ -1,5 +1,11 @@
 # Global NTL
 
+# nohup Rscript _main.R &
+# jobs
+# ps aux | grep "_main.R"
+# kill <PID>
+# tail -f nohup.out
+
 ## Packages
 library(tidyverse)
 library(sf)
@@ -16,6 +22,8 @@ library(DescTools)
 library(fixest)
 library(leaflet)
 library(arrow)
+library(future.apply)
+
 source("https://raw.githubusercontent.com/ramarty/fast-functions/refs/heads/master/R/functions_in_chunks.R")
 
 ## Paths
@@ -33,3 +41,5 @@ agg_append_dir    <- file.path(proj_dir, "data", "blackmarble", "aggregated_appe
 
 # gas_flare_dir <- file.path(proj_dir, "data", "gas-flaring")
 # figures_dir   <- file.path(proj_dir, "outputs", "figures")
+
+#source(file.path(code_dir, "01_make_rasters.R"))
