@@ -18,8 +18,11 @@ for(adm_level_i in 0:2){
     for(iso_i in iso_all){
       
       rasters_all <- file.path(raster_ntl_root_dir, product_id_i, iso_i) %>%
-        list.files() %>%
-        rev()
+        list.files() 
+      
+      rasters_all <- rasters_all %>%
+        sort() %>%
+        head(120)
       
       roi_sf <- adm_sf[adm_sf$ISO_A3 %in% iso_i,]
       

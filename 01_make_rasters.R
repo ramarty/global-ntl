@@ -25,8 +25,8 @@ for(product_id_i in c("VNP46A3", "VNP46A4")){
   }
   
   if(product_id_i == "VNP46A3"){
-    date_vec <- seq.Date(from = ymd("2016-01-01"), # ymd("2012-01-01")
-                         to = ymd("2025-07-01"),
+    date_vec <- seq.Date(from = ymd("2023-02-01"), # ymd("2012-01-01")
+                         to = ymd("2025-08-01"),
                          by = "month") %>%
       as.character()
   }
