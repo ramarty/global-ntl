@@ -23,6 +23,7 @@ library(fixest)
 library(leaflet)
 library(arrow)
 library(future.apply)
+library(furrr)
 
 source("https://raw.githubusercontent.com/ramarty/fast-functions/refs/heads/master/R/functions_in_chunks.R")
 

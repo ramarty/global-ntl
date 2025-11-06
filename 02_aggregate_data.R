@@ -1,5 +1,8 @@
 # Aggregate Data
 
+#plan(multisession, workers = parallel::detectCores() - 1)
+plan(multisession, workers = 10)
+
 gf_sf <- readRDS(file.path(gasflare_dir, "finaldata", "gas_flare_locations.Rds"))
 
 # Loop: ADM Level --------------------------------------------------------------
@@ -15,43 +18,69 @@ for(adm_level_i in 0:2){
       list.files()
     
     # Loop: ISO ----------------------------------------------------------------
+    message(paste0("Processing: ", iso_i))
     for(iso_i in iso_all){
       
+      # Ensure directories created - - - - - - - - - - - - - - - - - - - - - - -
+      adm_level_name_i <- paste0("ADM", adm_level_i)
+      dir.create(file.path(agg_date_dir,  adm_level_name_i), showWarnings = F)
+      dir.create(file.path(agg_date_dir,  adm_level_name_i, product_id_i), showWarnings = F)
+      dir.create(file.path(agg_date_dir,  adm_level_name_i, product_id_i, iso_i), showWarnings = F)
+      
+      # Restrict to files that don't exist - - - - - - - - - - - - - - - - - - -
+      #### Raster files
       rasters_all <- file.path(raster_ntl_root_dir, product_id_i, iso_i) %>%
         list.files() 
       
-      rasters_all <- rasters_all %>%
-        sort() %>%
-        head(120)
+      #### Prep date (from rasters)
+      if(product_id_i == "VNP46A3"){
+        dates_all <- str_extract(rasters_all, "\\d{4}_\\d{2}.tif") %>%
+          str_replace_all(".tif", "") %>%
+          str_replace_all("_", "-") %>%
+          paste0("-01")
+      }
       
-      roi_sf <- adm_sf[adm_sf$ISO_A3 %in% iso_i,]
+      if(product_id_i == "VNP46A4"){
+        dates_all <- str_extract(rasters_all, "\\d{4}.tif") %>%
+          str_replace_all(".tif", "") %>%
+          as.numeric()
+      }
       
-      # Loop: Date -------------------------------------------------------------
-      for(raster_i in rasters_all){
+      #### Out paths
+      out_paths <- file.path(agg_date_dir, adm_level_name_i, product_id_i, iso_i, paste0(dates_all, ".Rds"))
+      
+      #### Restrict to files that don't already exist
+      files_not_processed_tf <- !file.exists(out_paths)
+      
+      rasters_not_processed <- rasters_all[files_not_processed_tf]
+      
+      if(length(rasters_not_processed) > 0){
         
-        # Prep date - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
-        if(product_id_i == "VNP46A3"){
-          date_i <- str_extract(raster_i, "\\d{4}_\\d{2}.tif") %>%
-            str_replace_all(".tif", "") %>%
-            str_replace_all("_", "-") %>%
-            paste0("-01")
-        }
+        roi_sf <- adm_sf[adm_sf$ISO_A3 %in% iso_i,] %>%
+          st_make_valid()
         
-        if(product_id_i == "VNP46A4"){
-          date_i <- str_extract(raster_i, "\\d{4}.tif") %>%
-            str_replace_all(".tif", "") %>%
-            as.numeric()
-        }
-        
-        # Prep out file - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
-        adm_level_name_i <- paste0("ADM", adm_level_i)
-        dir.create(file.path(agg_date_dir,  adm_level_name_i), showWarnings = F)
-        dir.create(file.path(agg_date_dir,  adm_level_name_i, product_id_i), showWarnings = F)
-        dir.create(file.path(agg_date_dir,  adm_level_name_i, product_id_i, iso_i), showWarnings = F)
-        OUT_PATH <- file.path(agg_date_dir, adm_level_name_i, product_id_i, iso_i, paste0(date_i, ".Rds"))
-        
-        #### Check if file exists
-        if(!file.exists(OUT_PATH)){
+        # Loop: Date -------------------------------------------------------------
+        #for(raster_i in rasters_not_processed){
+        future_map(rasters_not_processed, function(raster_i) {
+          
+          
+          #### Prep out file
+          ## Date from single raster
+          if(product_id_i == "VNP46A3"){
+            date_i <- str_extract(raster_i, "\\d{4}_\\d{2}.tif") %>%
+              str_replace_all(".tif", "") %>%
+              str_replace_all("_", "-") %>%
+              paste0("-01")
+          }
+          
+          if(product_id_i == "VNP46A4"){
+            date_i <- str_extract(raster_i, "\\d{4}.tif") %>%
+              str_replace_all(".tif", "") %>%
+              as.numeric()
+          }
+          
+          # Prep out file - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
+          OUT_PATH <- file.path(agg_date_dir, adm_level_name_i, product_id_i, iso_i, paste0(date_i, ".Rds"))
           
           message(paste0("Processing: ", adm_level_name_i, " - ", product_id_i, " - ", iso_i, " - ", date_i))
           
@@ -62,7 +91,11 @@ for(adm_level_i in 0:2){
           #### Quality
           raster_qual_i <- raster_i %>%
             str_replace_all("Snow_Free", "Snow_Free_Quality")
-          qual_r <- rast(file.path(raster_qual_root_dir, product_id_i, iso_i, raster_qual_i))
+          raster_qual_i_path <- file.path(raster_qual_root_dir, product_id_i, iso_i, raster_qual_i)
+          
+          #if(!file.exists(raster_qual_i_path)) next
+          
+          qual_r <- rast(raster_qual_i_path)
           
           #### Crop/Mask
           r      <- r      %>% crop(roi_sf) %>% mask(roi_sf)
@@ -199,10 +232,10 @@ for(adm_level_i in 0:2){
           # Export - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
           saveRDS(roi_df, OUT_PATH)
           
-        }
+        })
       }
     }
   }
 }
-
+#}
 

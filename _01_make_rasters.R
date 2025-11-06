@@ -1,10 +1,3 @@
-# Download NTL Rasters
-# Download data for (1) each country and (2) each date
-
-#### PARAMETERS
-download_all_h5 <- F
-
-#### SETUP
 
 sf_use_s2(TRUE)
 
@@ -32,7 +25,7 @@ for(product_id_i in c("VNP46A3", "VNP46A4")){
   }
   
   if(product_id_i == "VNP46A3"){
-    date_vec <- seq.Date(from = ymd("2012-01-01"), # ymd("2012-01-01")
+    date_vec <- seq.Date(from = ymd("2025-01-01"), # ymd("2012-01-01")
                          to = ymd("2025-09-01"),
                          by = "month") %>%
       as.character()
@@ -41,50 +34,7 @@ for(product_id_i in c("VNP46A3", "VNP46A4")){
   #### Loop: Date
   for(date_i in date_vec){
     
-    #### h5 directory
     h5_temp_dir <- file.path(h5_dir, paste0(product_id_i, " - ", date_i))
-    
-    #### Clean date name
-    if(product_id_i == "VNP46A3"){
-      date_clean_i <- date_i %>% substring(1, 7) %>% str_replace_all("-", "_")
-    }
-    if(product_id_i == "VNP46A4"){
-      date_clean_i <- date_i %>% as.character()
-    }
-    
-    # Check to download h5 files -----------------------------------------------
-    # Based on (1) whether rasters have been downloaded and (2) whether
-    # h5 files have been downloaded
-    
-    if(download_all_h5){
-      
-      #### Files that already exist
-      h5_temp_n <- h5_temp_dir %>%
-        list.files() %>%
-        length()
-      
-      tif_files_n <- file.path(raster_ntl_root_dir, product_id_i) %>%
-        list.files(recursive = T,
-                   pattern = date_str_i) %>%
-        length()
-      
-      ## Check of download
-      if( 
-        (tif_files_n <= 200) & 
-        (h5_temp_n <= 200) 
-      ){
-        
-        # Download h5 files ----------------------------------------------------
-        message("Downloading h5 files")
-        dir.create(h5_temp_dir, showWarnings = FALSE)
-        download_h5_files(roi_sf = world_union_sf,
-                          product_id = product_id_i,
-                          date = date_i,
-                          h5_dir = h5_temp_dir,
-                          bearer = bearer,
-                          download_method = "httr")
-      }
-    }
     
     #### Loop: Country
     for(uid_i in sort(unique(adm0_sf$ISO_A3))){
@@ -109,20 +59,39 @@ for(product_id_i in c("VNP46A3", "VNP46A4")){
       dir.create(file.path(raster_qual_root_dir, product_id_i, uid_i), showWarnings = FALSE)
       raster_qual_out_dir <- file.path(raster_qual_root_dir, product_id_i, uid_i)
       
-      #### Extract data if doesn't exist ---------------------------------------
-      ntl_tif_n <- raster_ntl_out_dir %>%
+      #### Check if file already exists; skip if exists
+      if(product_id_i == "VNP46A3"){
+        date_clean_i <- date_i %>% substring(1, 7) %>% str_replace_all("-", "_")
+      }
+      if(product_id_i == "VNP46A4"){
+        date_clean_i <- date_i %>% as.character()
+      }
+      
+      n_files <- raster_qual_out_dir %>%
         list.files() %>%
         str_subset(date_clean_i) %>%
         length()
       
-      qual_tif_n <- raster_qual_out_dir %>%
-        list.files() %>%
-        str_subset(date_clean_i) %>%
-        length()
-      
-      message(paste0("Checking: ", product_id_i, " ", uid_i, " ", date_i))
-      
-      if( (ntl_tif_n == 0) | (qual_tif_n == 0) ){
+      if(n_files == 0){
+        
+        # Download h5 files ----------------------------------------------------
+        h5_files <- h5_temp_dir %>%
+          list.files(full.names = T)
+        
+        raster_files <- file.path(raster_ntl_root_dir, product_id_i) %>%
+          list.files(recursive = T) %>%
+          str_subset(date_clean_i)
+        
+        if( (length(h5_files) < 330) & (length(raster_files) < length(unique(adm0_sf$ISO_A3)) ) ){
+          message("Downloading h5 files")
+          dir.create(h5_temp_dir, showWarnings = FALSE)
+          download_h5_files(roi_sf = world_union_sf,
+                            product_id = product_id_i,
+                            date = date_i,
+                            h5_dir = h5_temp_dir,
+                            bearer = bearer,
+                            download_method = "httr")
+        }
         
         # Query Data -----------------------------------------------------------
         message(paste0("Processing: ", product_id_i, " ", uid_i, " ", date_i))
@@ -136,20 +105,39 @@ for(product_id_i in c("VNP46A3", "VNP46A4")){
         }
         
         # Extract NTL ----------------------------------------------------------
+        # r_tmp <- tryCatch(
+        #   {
+        #     bm_raster(
+        #       roi_sf = roi_sf,
+        #       product_id = product_id_i,
+        #       date = date_i,
+        #       bearer = bearer,
+        #       output_location_type = "file",
+        #       file_dir = raster_ntl_out_dir,
+        #       h5_dir = h5_temp_dir,
+        #       check_all_tiles_exist = FALSE,
+        #       variable = "NearNadir_Composite_Snow_Free"
+        #     )
+        #     
+        #     # Force garbage collection and close connections
+        #     gc(verbose = FALSE)
+        #     closeAllConnections()
+        #   },
+        #   error = function(e) {
+        #     message("Error in bm_raster: ", conditionMessage(e))
+        #     closeAllConnections()  # Close connections even on error
+        #     gc(verbose = FALSE)
+        #     return(NULL)  # or NA, or some other placeholder
+        #   })
+        
         tryCatch({
-          
+ 
           r_tmp <- callr::r_safe(
-            function(roi_sf, product_id_i, date_i, bearer, raster_ntl_out_dir, h5_temp_dir, download_all_h5) {
+            function(roi_sf, product_id_i, date_i, bearer, raster_ntl_out_dir, h5_temp_dir) {
               tryCatch({
                 library(blackmarbler)
                 library(sf)
                 library(terra)
-                
-                if(download_all_h5){
-                  h5_temp_use_dir <- h5_temp_dir
-                } else{
-                  h5_temp_use_dir <- NULL
-                }
                 
                 bm_raster(
                   roi_sf = roi_sf,
@@ -158,7 +146,7 @@ for(product_id_i in c("VNP46A3", "VNP46A4")){
                   bearer = bearer,
                   output_location_type = "file",
                   file_dir = raster_ntl_out_dir,
-                  h5_dir = h5_temp_use_dir,
+                  h5_dir = h5_temp_dir,
                   check_all_tiles_exist = FALSE,
                   variable = "NearNadir_Composite_Snow_Free"
                 )
@@ -178,8 +166,7 @@ for(product_id_i in c("VNP46A3", "VNP46A4")){
               date_i = date_i,
               bearer = bearer,
               raster_ntl_out_dir = raster_ntl_out_dir,
-              h5_temp_dir = h5_temp_dir,
-              download_all_h5 = download_all_h5
+              h5_temp_dir = h5_temp_dir
             )
           )
           
@@ -187,21 +174,26 @@ for(product_id_i in c("VNP46A3", "VNP46A4")){
           message("Error: ", conditionMessage(e))
         })
         
+        
+        
+        
+
+        
+        # Clean up outside process as well
+        # gc(verbose = FALSE)
+        # closeAllConnections()
+        # terra::tmpFiles(remove = TRUE)
+        
         # Extract Quality ------------------------------------------------------
+
         tryCatch({
           
           r_tmp <- callr::r_safe(
-            function(roi_sf, product_id_i, date_i, bearer, raster_qual_out_dir, h5_temp_dir, download_all_h5) {
+            function(roi_sf, product_id_i, date_i, bearer, raster_qual_out_dir, h5_temp_dir) {
               tryCatch({
                 library(blackmarbler)
                 library(sf)
                 library(terra)
-                
-                if(download_all_h5){
-                  h5_temp_use_dir <- h5_temp_dir
-                } else{
-                  h5_temp_use_dir <- NULL
-                }
                 
                 bm_raster(
                   roi_sf = roi_sf,
@@ -210,7 +202,7 @@ for(product_id_i in c("VNP46A3", "VNP46A4")){
                   bearer = bearer,
                   output_location_type = "file",
                   file_dir = raster_qual_out_dir,
-                  h5_dir = h5_temp_use_dir,
+                  h5_dir = h5_temp_dir,
                   check_all_tiles_exist = FALSE,
                   variable = "NearNadir_Composite_Snow_Free_Quality"
                 )
@@ -230,8 +222,7 @@ for(product_id_i in c("VNP46A3", "VNP46A4")){
               date_i = date_i,
               bearer = bearer,
               raster_qual_out_dir = raster_qual_out_dir,
-              h5_temp_dir = h5_temp_dir,
-              download_all_h5 = download_all_h5
+              h5_temp_dir = h5_temp_dir
             )
           )
           
@@ -239,13 +230,25 @@ for(product_id_i in c("VNP46A3", "VNP46A4")){
           message("Error: ", conditionMessage(e))
         })
         
+        
+
+        
+        # Final cleanup outside the subprocess
+        # gc(verbose = FALSE)
+        # closeAllConnections()
+        # terra::tmpFiles(remove = TRUE)
+        
         # Cleanup --------------------------------------------------------------
         t2 <- Sys.time()
         
         print(t2 - t1)
-        ##
         
-      } # Extract if file doesn't exist
+        # showConnections(all = TRUE)
+        # closeAllConnections()
+        
+        ##
+      }
+      
       
     } # loop: uid
     
@@ -260,6 +263,7 @@ for(product_id_i in c("VNP46A3", "VNP46A4")){
     
     if(length(raster_files) == length(unique(adm0_sf$ISO_A3)) ){
       for(h5_files_i in h5_files) file.remove(h5_files_i)
+      #unlink(h5_temp_dir)
       unlink(h5_temp_dir, recursive = TRUE, force = TRUE)
     }
     
