@@ -3,6 +3,7 @@
 
 #### PARAMETERS
 download_all_h5 <- F
+use_other_r_session <- F
 
 #### SETUP
 
@@ -40,6 +41,7 @@ for(product_id_i in c("VNP46A3", "VNP46A4")){
   
   #### Loop: Date
   for(date_i in date_vec){
+    message(paste0("Checking: ", date_i))
     
     #### h5 directory
     h5_temp_dir <- file.path(h5_dir, paste0(product_id_i, " - ", date_i))
@@ -87,7 +89,45 @@ for(product_id_i in c("VNP46A3", "VNP46A4")){
     }
     
     #### Loop: Country
-    for(uid_i in sort(unique(adm0_sf$ISO_A3))){
+    
+    ## Determine which countries to extract data from
+    ## Check if data has been extracted yet
+    
+    ## NTL
+    ntl_files_all <- file.path(raster_ntl_root_dir, product_id_i) %>%
+      list.files(recursive = T,
+                 pattern = paste0(date_clean_i, ".tif"))
+    
+    ntl_uids_with_data <- ntl_files_all %>%
+      str_replace_all("/.*", "")
+    
+    if(length(ntl_uids_with_data) > 0){
+      ntl_uids_no_data <- adm0_sf$ISO_A3[!(adm0_sf$ISO_A3 %in% ntl_uids_with_data)] %>%
+        unique()
+    } else{
+      ntl_uids_no_data <- adm0_sf$ISO_A3 %>% unique()
+    }
+    
+    ## Quality
+    qual_files_all <- file.path(raster_qual_root_dir, product_id_i) %>%
+      list.files(recursive = T,
+                 pattern = paste0(date_clean_i, ".tif"))
+    
+    qual_uids_with_data <- qual_files_all %>%
+      str_replace_all("/.*", "")
+    
+    if(length(qual_uids_with_data) > 0){
+      qual_uids_no_data <- adm0_sf$ISO_A3[!(adm0_sf$ISO_A3 %in% qual_uids_with_data)] %>%
+        unique()
+    } else{
+      qual_uids_no_data <- adm0_sf$ISO_A3 %>% unique()
+    }
+    
+    ## Combine
+    uids_no_data <- unique(c(ntl_uids_no_data, qual_uids_no_data)) %>%
+      sort()
+    
+    for(uid_i in uids_no_data){ # sort(unique(adm0_sf$ISO_A3))
       
       counter <- counter + 1
       # Periodic cleanup every 10 countries
@@ -136,108 +176,143 @@ for(product_id_i in c("VNP46A3", "VNP46A4")){
         }
         
         # Extract NTL ----------------------------------------------------------
-        tryCatch({
+        if(use_other_r_session %in% F){
           
-          r_tmp <- callr::r_safe(
-            function(roi_sf, product_id_i, date_i, bearer, raster_ntl_out_dir, h5_temp_dir, download_all_h5) {
-              tryCatch({
-                library(blackmarbler)
-                library(sf)
-                library(terra)
-                
-                if(download_all_h5){
-                  h5_temp_use_dir <- h5_temp_dir
-                } else{
-                  h5_temp_use_dir <- NULL
-                }
-                
-                bm_raster(
-                  roi_sf = roi_sf,
-                  product_id = product_id_i,
-                  date = date_i,
-                  bearer = bearer,
-                  output_location_type = "file",
-                  file_dir = raster_ntl_out_dir,
-                  h5_dir = h5_temp_use_dir,
-                  check_all_tiles_exist = FALSE,
-                  variable = "NearNadir_Composite_Snow_Free"
-                )
-                
-                invisible(NULL)
-              }, error = function(e) {
-                message("Error in bm_raster (NTL): ", conditionMessage(e))
-                closeAllConnections()
-                gc(verbose = FALSE)
-                terra::tmpFiles(remove = TRUE)
-                NULL
-              })
-            },
-            args = list(
-              roi_sf = roi_sf,
-              product_id_i = product_id_i,
-              date_i = date_i,
-              bearer = bearer,
-              raster_ntl_out_dir = raster_ntl_out_dir,
-              h5_temp_dir = h5_temp_dir,
-              download_all_h5 = download_all_h5
-            )
+          if(download_all_h5){
+            h5_temp_use_dir <- h5_temp_dir
+          } else{
+            h5_temp_use_dir <- NULL
+          }
+          
+          bm_raster(
+            roi_sf = roi_sf,
+            product_id = product_id_i,
+            date = date_i,
+            bearer = bearer,
+            output_location_type = "file",
+            file_dir = raster_ntl_out_dir,
+            h5_dir = h5_temp_use_dir,
+            check_all_tiles_exist = FALSE,
+            variable = "NearNadir_Composite_Snow_Free"
           )
           
-        }, error = function(e) {
-          message("Error: ", conditionMessage(e))
-        })
-        
-        # Extract Quality ------------------------------------------------------
-        tryCatch({
-          
-          r_tmp <- callr::r_safe(
-            function(roi_sf, product_id_i, date_i, bearer, raster_qual_out_dir, h5_temp_dir, download_all_h5) {
-              tryCatch({
-                library(blackmarbler)
-                library(sf)
-                library(terra)
-                
-                if(download_all_h5){
-                  h5_temp_use_dir <- h5_temp_dir
-                } else{
-                  h5_temp_use_dir <- NULL
-                }
-                
-                bm_raster(
-                  roi_sf = roi_sf,
-                  product_id = product_id_i,
-                  date = date_i,
-                  bearer = bearer,
-                  output_location_type = "file",
-                  file_dir = raster_qual_out_dir,
-                  h5_dir = h5_temp_use_dir,
-                  check_all_tiles_exist = FALSE,
-                  variable = "NearNadir_Composite_Snow_Free_Quality"
-                )
-                
-                invisible(NULL)
-              }, error = function(e) {
-                message("Error in bm_raster (Quality): ", conditionMessage(e))
-                closeAllConnections()
-                gc(verbose = FALSE)
-                terra::tmpFiles(remove = TRUE)
-                NULL
-              })
-            },
-            args = list(
-              roi_sf = roi_sf,
-              product_id_i = product_id_i,
-              date_i = date_i,
-              bearer = bearer,
-              raster_qual_out_dir = raster_qual_out_dir,
-              h5_temp_dir = h5_temp_dir,
-              download_all_h5 = download_all_h5
-            )
+          bm_raster(
+            roi_sf = roi_sf,
+            product_id = product_id_i,
+            date = date_i,
+            bearer = bearer,
+            output_location_type = "file",
+            file_dir = raster_qual_out_dir,
+            h5_dir = h5_temp_use_dir,
+            check_all_tiles_exist = FALSE,
+            variable = "NearNadir_Composite_Snow_Free_Quality"
           )
           
-        }, error = function(e) {
-          message("Error: ", conditionMessage(e))
-        })
+        } else{
+          tryCatch({
+            
+            r_tmp <- callr::r_safe(
+              function(roi_sf, product_id_i, date_i, bearer, raster_ntl_out_dir, h5_temp_dir, download_all_h5) {
+                tryCatch({
+                  library(blackmarbler)
+                  library(sf)
+                  library(terra)
+                  
+                  if(download_all_h5){
+                    h5_temp_use_dir <- h5_temp_dir
+                  } else{
+                    h5_temp_use_dir <- NULL
+                  }
+                  
+                  bm_raster(
+                    roi_sf = roi_sf,
+                    product_id = product_id_i,
+                    date = date_i,
+                    bearer = bearer,
+                    output_location_type = "file",
+                    file_dir = raster_ntl_out_dir,
+                    h5_dir = h5_temp_use_dir,
+                    check_all_tiles_exist = FALSE,
+                    variable = "NearNadir_Composite_Snow_Free"
+                  )
+                  
+                  invisible(NULL)
+                }, error = function(e) {
+                  message("Error in bm_raster (NTL): ", conditionMessage(e))
+                  closeAllConnections()
+                  gc(verbose = FALSE)
+                  terra::tmpFiles(remove = TRUE)
+                  NULL
+                })
+              },
+              args = list(
+                roi_sf = roi_sf,
+                product_id_i = product_id_i,
+                date_i = date_i,
+                bearer = bearer,
+                raster_ntl_out_dir = raster_ntl_out_dir,
+                h5_temp_dir = h5_temp_dir,
+                download_all_h5 = download_all_h5
+              )
+            )
+            
+          }, error = function(e) {
+            message("Error: ", conditionMessage(e))
+          })
+          
+          # Extract Quality ------------------------------------------------------
+          tryCatch({
+            
+            r_tmp <- callr::r_safe(
+              function(roi_sf, product_id_i, date_i, bearer, raster_qual_out_dir, h5_temp_dir, download_all_h5) {
+                tryCatch({
+                  library(blackmarbler)
+                  library(sf)
+                  library(terra)
+                  
+                  if(download_all_h5){
+                    h5_temp_use_dir <- h5_temp_dir
+                  } else{
+                    h5_temp_use_dir <- NULL
+                  }
+                  
+                  bm_raster(
+                    roi_sf = roi_sf,
+                    product_id = product_id_i,
+                    date = date_i,
+                    bearer = bearer,
+                    output_location_type = "file",
+                    file_dir = raster_qual_out_dir,
+                    h5_dir = h5_temp_use_dir,
+                    check_all_tiles_exist = FALSE,
+                    variable = "NearNadir_Composite_Snow_Free_Quality"
+                  )
+                  
+                  invisible(NULL)
+                }, error = function(e) {
+                  message("Error in bm_raster (Quality): ", conditionMessage(e))
+                  closeAllConnections()
+                  gc(verbose = FALSE)
+                  terra::tmpFiles(remove = TRUE)
+                  NULL
+                })
+              },
+              args = list(
+                roi_sf = roi_sf,
+                product_id_i = product_id_i,
+                date_i = date_i,
+                bearer = bearer,
+                raster_qual_out_dir = raster_qual_out_dir,
+                h5_temp_dir = h5_temp_dir,
+                download_all_h5 = download_all_h5
+              )
+            )
+            
+          }, error = function(e) {
+            message("Error: ", conditionMessage(e))
+          })
+          
+        }
         
         # Cleanup --------------------------------------------------------------
         t2 <- Sys.time()
