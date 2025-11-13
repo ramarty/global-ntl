@@ -29,7 +29,16 @@ for(product_id_i in c("VNP46A3", "VNP46A4")){ # ,
     #### Export
     write_csv(df, file.path(agg_append_dir, paste0(file_name, ".csv")))
     write_parquet(df, file.path(agg_append_dir, paste0(file_name, ".parquet")))
-
+    
   }
 }
 
+# for(i in 0:2){
+#   df <- read_parquet(file.path(agg_append_dir, paste0("adm",i,"_annual", ".parquet")))
+#   df <- df %>% dplyr::filter(ISO_A3 == "NIC")
+#   write_dta(df, paste0("~/Dropbox/ntl_nicaragua_adm",i,"_annual.dta"))
+#   
+#   df <- read_parquet(file.path(agg_append_dir, paste0("adm",i,"_monthly", ".parquet")))
+#   df <- df %>% dplyr::filter(ISO_A3 == "NIC")
+#   write_dta(df, paste0("~/Dropbox/ntl_nicaragua_adm",i,"_monthly.dta"))
+# }

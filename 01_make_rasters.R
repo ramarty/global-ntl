@@ -3,7 +3,7 @@
 
 #### PARAMETERS
 download_all_h5 <- F
-use_other_r_session <- F
+use_other_r_session <- T
 
 #### SETUP
 
