@@ -3,7 +3,7 @@
 #plan(multisession, workers = parallel::detectCores() - 1)
 #plan(multisession, workers = 10)
 
-ignore_big <- T
+ignore_big <- F
 
 gf_sf <- readRDS(file.path(gasflare_dir, "finaldata", "gas_flare_locations.Rds"))
 
@@ -25,20 +25,20 @@ if(ignore_big){
 ###
 
 # Loop: ADM Level --------------------------------------------------------------
-for(adm_level_i in rev(0:2)){
+for(adm_level_i in 2){
   
   adm_sf <- read_sf(file.path(wb_bound_dir, 
                               paste0("World Bank Official Boundaries - Admin ",adm_level_i,".gpkg")))
-  
-  if(ignore_big){
-    adm_sf <- adm_sf[!(adm_sf$ISO_A3 %in% big_countries),]
-  }
   
   # Loop: Product --------------------------------------------------------------
   for(product_id_i in rev(c("VNP46A3", "VNP46A4"))){ 
     
     iso_all <- file.path(raster_ntl_root_dir, product_id_i) %>% 
       list.files()
+  
+    if(ignore_big){
+      iso_all <- iso_all[!(iso_all %in% big_countries)]
+    }
     
     # Loop: ISO ----------------------------------------------------------------
     for(iso_i in rev(iso_all)){
@@ -127,19 +127,38 @@ for(adm_level_i in rev(0:2)){
               qual_r <- qual_r %>% crop(roi_sf) %>% mask(roi_sf)
               
               #### Prep Gas Flaring
-              inter_tf <- st_intersects(roi_sf, 
-                                        gf_sf, 
-                                        sparse = F) %>% 
-                apply(2, sum) %>%
-                as.vector()
+              # There were some issues of "Loop X is not valid"; 
+              # Doing: %>% st_combine() %>% st_make_valid() resolves
+              inter_tf <- tryCatch(
+                {
+                  # First attempt
+                  st_intersects(roi_sf, gf_sf, sparse = FALSE) %>%
+                    apply(2, sum) %>%
+                    as.vector()
+                },
+                error = function(e) {
+                  #message("Primary st_intersects() failed — using combined/made-valid/unioned roi_sf")
+                  
+                  st_intersects(
+                    roi_sf %>% st_combine() %>% st_make_valid(),
+                    gf_sf,
+                    sparse = FALSE
+                  ) %>%
+                    apply(2, sum) %>%
+                    as.vector()
+                }
+              )
+              
               gf_sf_i <- gf_sf[inter_tf > 0,]
+              
+              rm(inter_tf)
               
               # Extract - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -
               METRICS <- c("sum", "mean", "median", "max", "quantile")
               QUANTILES <- c(0.05, 0.95)
               roi_df <- roi_sf %>% st_drop_geometry()
               
-              ntl_df <- exact_extract(r, roi_sf, METRICS, quantiles = QUANTILES) %>%
+              ntl_df <- exact_extract(r, roi_sf, METRICS, quantiles = QUANTILES, progress = F) %>%
                 rename_with(~ paste0("ntl_", .x)) 
               
               # Extract Gas Flaring - - - - - - - - - - - - - - - - - - - - - - - - 
@@ -157,16 +176,16 @@ for(adm_level_i in rev(0:2)){
                 r_nogf_10km <- r %>% mask(gf_sf_10km_i, inverse = T)
                 
                 ## Extract
-                ntl_gf_5km_df <- exact_extract(r_gf_5km, roi_sf, METRICS, quantiles = QUANTILES) %>%
+                ntl_gf_5km_df <- exact_extract(r_gf_5km, roi_sf, METRICS, quantiles = QUANTILES, progress = F) %>%
                   rename_with(~ paste0("ntl_gf_5km_", .x)) 
                 
-                ntl_nogf_5km_df <- exact_extract(r_nogf_5km, roi_sf, METRICS, quantiles = QUANTILES) %>%
+                ntl_nogf_5km_df <- exact_extract(r_nogf_5km, roi_sf, METRICS, quantiles = QUANTILES, progress = F) %>%
                   rename_with(~ paste0("ntl_nogf_5km_", .x)) 
                 
-                ntl_gf_10km_df <- exact_extract(r_gf_10km, roi_sf, METRICS, quantiles = QUANTILES) %>%
+                ntl_gf_10km_df <- exact_extract(r_gf_10km, roi_sf, METRICS, quantiles = QUANTILES, progress = F) %>%
                   rename_with(~ paste0("ntl_gf_10km_", .x)) 
                 
-                ntl_nogf_10km_df <- exact_extract(r_nogf_10km, roi_sf, METRICS, quantiles = QUANTILES) %>%
+                ntl_nogf_10km_df <- exact_extract(r_nogf_10km, roi_sf, METRICS, quantiles = QUANTILES, progress = F) %>%
                   rename_with(~ paste0("ntl_nogf_10km_", .x)) 
                 
               } else{
@@ -221,7 +240,8 @@ for(adm_level_i in rev(0:2)){
                                                 data.frame(ntl_quality_prop_0_good, 
                                                            ntl_quality_prop_1_poor, 
                                                            ntl_quality_prop_2_gapfilled)
-                                              })
+                                              },
+                                              progress = F)
               
               # Extract Proportion NA - - - - - - - - - - - - - - - - - - - - - - - 
               ntl_prop_na_df <- exact_extract(r, 
@@ -234,7 +254,8 @@ for(adm_level_i in rev(0:2)){
                                                   sum( length(values) , na.rm = TRUE)
                                                 
                                                 data.frame(ntl_quality_prop_na)
-                                              })
+                                              },
+                                              progress = F)
               
               # Prep output - - - - - - - - - - - - - - - - - - - - - - - - - - - - 
               if(product_id_i == "VNP46A3"){

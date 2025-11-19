@@ -1,11 +1,10 @@
 # Append Data
 
 product_id_i <- "VNP46A4"
-iso_i <- "ABW"
 adm_level_name_i <- "ADM2"
 
 for(product_id_i in c("VNP46A3", "VNP46A4")){ # , 
-  for(adm_level_name_i in c("ADM0", "ADM1", "ADM2")){
+  for(adm_level_name_i in c("ADM2")){
     
     message(paste0("Appending: ", adm_level_name_i, " - ", product_id_i))
     
@@ -26,19 +25,17 @@ for(product_id_i in c("VNP46A3", "VNP46A4")){ # ,
                         "_",
                         time_name)
     
+    #### Rename variables
+    if(product_id_i == "VNP46A4"){
+      df <- df %>%
+        dplyr::rename(year = date)
+    }
+    
     #### Export
-    write_csv(df, file.path(agg_append_dir, paste0(file_name, ".csv")))
+    write_csv(df,     file.path(agg_append_dir, paste0(file_name, ".csv")))
     write_parquet(df, file.path(agg_append_dir, paste0(file_name, ".parquet")))
+    write_dta(df,     file.path(agg_append_dir, paste0(file_name, ".dta")))
     
   }
 }
 
-# for(i in 0:2){
-#   df <- read_parquet(file.path(agg_append_dir, paste0("adm",i,"_annual", ".parquet")))
-#   df <- df %>% dplyr::filter(ISO_A3 == "NIC")
-#   write_dta(df, paste0("~/Dropbox/ntl_nicaragua_adm",i,"_annual.dta"))
-#   
-#   df <- read_parquet(file.path(agg_append_dir, paste0("adm",i,"_monthly", ".parquet")))
-#   df <- df %>% dplyr::filter(ISO_A3 == "NIC")
-#   write_dta(df, paste0("~/Dropbox/ntl_nicaragua_adm",i,"_monthly.dta"))
-# }

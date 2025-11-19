@@ -3,7 +3,7 @@
 
 #### PARAMETERS
 download_all_h5 <- F
-use_other_r_session <- T
+use_other_r_session <- F
 
 #### SETUP
 
@@ -33,8 +33,8 @@ for(product_id_i in c("VNP46A3", "VNP46A4")){
   }
   
   if(product_id_i == "VNP46A3"){
-    date_vec <- seq.Date(from = ymd("2012-01-01"), # ymd("2012-01-01")
-                         to = ymd("2025-09-01"),
+    date_vec <- seq.Date(from = ymd("2025-10-01"), 
+                         to = ymd("2025-10-01"),
                          by = "month") %>%
       as.character()
   }
@@ -64,6 +64,14 @@ for(product_id_i in c("VNP46A3", "VNP46A4")){
       h5_temp_n <- h5_temp_dir %>%
         list.files() %>%
         length()
+      
+      if(product_id_i == "VNP46A3"){
+        date_str_i <- date_i %>% substring(1,7) %>% str_replace_all("-", "_")
+      }
+      
+      if(product_id_i == "VNP46A4"){
+        date_str_i <- date_i %>% substring(1,4)
+      }
       
       tif_files_n <- file.path(raster_ntl_root_dir, product_id_i) %>%
         list.files(recursive = T,
