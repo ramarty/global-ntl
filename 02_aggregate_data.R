@@ -42,8 +42,7 @@ for(adm_level_i in 2){
     
     # Loop: ISO ----------------------------------------------------------------
     for(iso_i in rev(iso_all)){
-      message(paste0("Processing: ", iso_i))
-      
+
       # Ensure directories created - - - - - - - - - - - - - - - - - - - - - - -
       adm_level_name_i <- paste0("ADM", adm_level_i)
       dir.create(file.path(agg_date_dir,  adm_level_name_i), showWarnings = F)
@@ -84,6 +83,7 @@ for(adm_level_i in 2){
         
         # Loop: Date -------------------------------------------------------------
         for(raster_i in rasters_not_processed){
+          message(paste0("Processing: ", iso_i))
           #future_map(rasters_not_processed, function(raster_i) {
           
           tmp <- tryCatch(

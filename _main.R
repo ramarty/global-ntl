@@ -38,7 +38,7 @@ gasflare_dir <- file.path(data_dir, "global-flaring-data")
 raster_ntl_root_dir <- file.path(proj_dir, "data", "blackmarble", "rasters_ntl")
 raster_qual_root_dir <- file.path(proj_dir, "data", "blackmarble", "rasters_quality")
 agg_date_dir    <- file.path(proj_dir, "data", "blackmarble", "aggregated_by_date")
-agg_append_dir    <- file.path(proj_dir, "data", "blackmarble", "aggregated_appened")
+agg_append_dir    <- file.path(proj_dir, "data", "blackmarble", "aggregated_appended")
 
 # gas_flare_dir <- file.path(proj_dir, "data", "gas-flaring")
 # figures_dir   <- file.path(proj_dir, "outputs", "figures")
